@@ -65,9 +65,27 @@ def validate_output(text):
 
 def _check_injection(msg):
     patterns = [
-        r'ignore\s+(all\s+)?(previous|prior|above|system)\s+(instructions|prompts)',
-        r'(show|reveal|display)\s+(your\s+)?system\s+prompt',
-        r'you\s+are\s+now\s+(?!helpful|assistant)',
+            # English (keep existing)
+            r'ignore\s+(all\s+)?(previous|prior|above|system)\s+(instructions|prompts)',
+            r'(show|reveal|display)\s+(your\s+)?system\s+prompt',
+            r'you\s+are\s+now\s+(?!helpful|assistant)',
+
+            # Danish – direct overrides
+            r'ignorer\s+(alle\s+)?(tidligere|forrige|ovenstående)\s+(instruktioner|prompter)',
+            r'vis\s+(din|jeres)?\s*(systemprompt|system\-prompt)',
+            r'fortæl\s+.*systemprompt',
+
+            # Danish – role / authority hijack
+            r'du\s+er\s+nu\s+',
+            r'du\s+fungerer\s+nu\s+som',
+
+            # Danish – compliance framing
+            r'autoriseret\s+(test|sikkerhedstest)',
+            r'intern\s+(debug|fejlsøgning)',
+
+            # Danish – leakage intent
+            r'interne\s+(instruktioner|regler)',
+            r'skjulte\s+(regler|instruktioner)'
     ]
     for p in patterns:
         if re.search(p, msg.lower(), re.IGNORECASE):
@@ -75,7 +93,15 @@ def _check_injection(msg):
     return {'safe': True}
 
 def _check_leakage(text):
-    patterns = [r'my\s+system\s+prompt', r'i\s+was\s+instructed\s+to', r'api\s+key']
+    patterns = [    r'my\s+system\s+prompt',
+    r'i\s+was\s+instructed\s+to',
+    r'api\s+key',
+
+    # Danish leakage
+    r'min\s+systemprompt',
+    r'jeg\s+blev\s+instrueret\s+til',
+    r'interne\s+instruktioner',
+    r'systeminstruktioner']
     for p in patterns:
         if re.search(p, text.lower()):
             return {'safe': False}

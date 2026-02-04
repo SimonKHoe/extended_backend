@@ -2,7 +2,7 @@
 import requests
 import json
 
-BASE_URL = "http://127.0.0.1:8080/lucid"
+BASE_URL = "https://extendedbackend.vercel.app/lucid"
 HEADERS = {
     "Content-Type": "application/json",
     "Origin": "http://localhost:3000"
