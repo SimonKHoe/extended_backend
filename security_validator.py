@@ -71,8 +71,8 @@ def _check_injection(msg):
             r'you\s+are\s+now\s+(?!helpful|assistant)',
 
             # Danish – direct overrides
-            r'ignorer\s+(alle\s+)?(tidligere|forrige|ovenstående)\s+(instruktioner|prompter)',
-            r'vis\s+(din|jeres)?\s*(systemprompt|system\-prompt)',
+            r'(ignorer|glem)\s+(alle\s+)?(tidligere|forrige|ovenstående)\s+(instruktioner|prompter)',
+            r'(vis|hvad\s+er)\s+(din|jeres)?\s*(systemprompt|system\-prompt|prompt)',
             r'fortæl\s+.*systemprompt',
 
             # Danish – role / authority hijack
