@@ -19,22 +19,22 @@ def validate_input(message, messages_history=None):
         return {'valid': True, 'filtered_message': message}
     
     if not message or len(message.strip()) < 1:
-        return {'valid': False, 'reason': 'Empty message'}
+        return {'valid': False, 'reason': 'Beskeden er tom. Prøv venligst at skrive noget, så jeg kan hjælpe.'}
     
     if len(message) > cfg['max_length']:
-        return {'valid': False, 'reason': 'Message too long'}
+        return {'valid': False, 'reason': 'Beskeden er for lang. Prøv at forkorte den, så jeg kan behandle den.'}
     
     # Prompt injection check
     if not _check_injection(message)['safe']:
         print("[SECURITY] Prompt injection detected")
-        return {'valid': False, 'reason': 'Input rejected by security'}
+        return {'valid': False, 'reason': 'Det ser ud til, at beskeden indeholder instruktioner, jeg ikke kan følge af sikkerhedshensyn.'}
     
     # OpenAI moderation
     if cfg['use_moderation'] and cfg['key']:
         mod = _moderate(message, cfg['key'])
         if not mod['safe']:
             print(f"[SECURITY] Moderation flagged: {mod['categories']}")
-            return {'valid': False, 'reason': 'Content policy violation'}
+            return {'valid': False, 'reason': 'Det ser ud til at beskeden overtræder indholdspolitikken, så jeg kan ikke svare på den. Spørg om noget andet eller omformuler venligst spørgsmålet.'}
     
     return {'valid': True, 'filtered_message': message.strip()}
 
@@ -45,13 +45,13 @@ def validate_output(text):
     
     if not text or len(text.strip()) == 0:
         return {'valid': False, 'use_fallback': True, 
-                'fallback_text': "I apologize, but I need to rephrase."}
+                'fallback_text': "Jeg kan ikke generere et svar på dette. Kan du omformulere spørgsmålet?"}
     
     # Leakage check
     if not _check_leakage(text)['safe']:
         print("[SECURITY] Information leakage detected")
         return {'valid': False, 'use_fallback': True,
-                'fallback_text': "I need to rephrase more carefully."}
+                'fallback_text': "Jeg kan ikke give et svar, der indeholder følsomme oplysninger. Kan du spørge på en anden måde?"}
     
     # Moderation
     if cfg['use_moderation'] and cfg['key']:
@@ -59,7 +59,7 @@ def validate_output(text):
         if not mod['safe']:
             print(f"[SECURITY] Output flagged: {mod['categories']}")
             return {'valid': False, 'use_fallback': True,
-                    'fallback_text': "I cannot provide that response."}
+                    'fallback_text': "Spørgsmålet eller svaret overtræder indholdspolitikken, så jeg kan ikke svare på det. Kan du omformulere det?"}
     
     return {'valid': True, 'filtered_text': text.strip()}
 
