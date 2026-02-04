@@ -13,6 +13,15 @@ import os      # Used for accessing environment variables (API keys, config)
 import requests # Used for making HTTP requests to the OpenAI API
 import html
 
+# 260204: These imports are for validation
+try:
+    from security_validator import validate_input, validate_output
+    SECURITY_AVAILABLE = True
+    print("[INFO] Security validation loaded")
+except ImportError:
+    SECURITY_AVAILABLE = False
+    print("[WARN] Security validation not available")
+
 # Initialize the Flask application
 app = Flask(__name__)
 
@@ -303,6 +312,44 @@ def lucid():
                 response_data = {'error': 'Bad Request', 'message': 'Messages list is missing, empty, or invalid.'}
                 status_code = 400 # Bad Request
             else:
+                # ========== SECURITY: INPUT VALIDATION ==========
+                security_passed = True  # Flag to track if we should continue
+            
+            if SECURITY_AVAILABLE:
+                # Extract latest user message
+                user_messages = [m for m in messages if m.get('role') == 'user']
+                
+                if user_messages:
+                    latest_message = user_messages[-1].get('content', '')
+                    print(f"[INFO /lucid] Validating input (length: {len(latest_message)} chars)")
+                    
+                    input_check = validate_input(latest_message, messages)
+                    
+                    if not input_check['valid']:
+                        # Security check failed
+                        reason = input_check.get('reason', 'Input validation failed')
+                        print(f"[SECURITY REJECT] {reason}")
+                        
+                        response_data = {
+                            'error': 'Invalid Input',
+                            'message': reason
+                        }
+                        status_code = 400
+                        security_passed = False
+                    else:
+                        # Security check passed - use filtered message
+                        filtered_msg = input_check.get('filtered_message', latest_message)
+                        
+                        # Update the message in place
+                        for i in range(len(messages) - 1, -1, -1):
+                            if messages[i].get('role') == 'user':
+                                messages[i]['content'] = filtered_msg
+                                break
+                        
+                        print(f"[INFO /lucid] Input validation PASSED")
+            # ========== END SECURITY: INPUT VALIDATION ==========
+            # Only continue if security passed (or wasn't available)
+            if security_passed:
                 # Process temperature (use value from frontend if valid, otherwise default to 1.0)
                 used_temperature = 1.0 # Default temperature
                 if temp_from_frontend is not None:
@@ -347,22 +394,47 @@ def lucid():
                 # --- Step 5: Process OpenAI Response ---
                 if openai_status == 200:
                     # Successful call
-                    print("[INFO /lucid] Successfully processed OpenAI response.") # Vercel Log
+                    print("[INFO /lucid] Successfully processed OpenAI response.")
                     try:
                         # Parse the JSON response from OpenAI
                         resp_json = response_openai.json()
                         # Extract the generated text content safely
                         generated_text = resp_json['choices'][0]['message']['content']
-
+                        
+                        # ========== SECURITY: OUTPUT VALIDATION ==========
+                        if SECURITY_AVAILABLE:
+                            print(f"[INFO /lucid] Validating output (length: {len(generated_text)} chars)")
+                            output_check = validate_output(generated_text)
+                            
+                            if not output_check['valid']:
+                                # Output failed validation
+                                reason = output_check.get('reason', 'Output validation failed')
+                                print(f"[SECURITY REJECT] Output: {reason}")
+                                
+                                # Check if we should use a fallback response
+                                if output_check.get('use_fallback'):
+                                    fallback = output_check.get('fallback_text', 
+                                                                'I apologize, but I need to rephrase my response.')
+                                    print(f"[SECURITY] Using fallback response")
+                                    generated_text = fallback
+                                else:
+                                    # No fallback specified - use generic safe message
+                                    generated_text = "I apologize, but I cannot complete this response properly."
+                            else:
+                                # Output validation passed - use filtered version
+                                generated_text = output_check.get('filtered_text', generated_text)
+                                print(f"[INFO /lucid] Output validation PASSED")
+                        # ========== END SECURITY: OUTPUT VALIDATION ==========
+                        
                         # Prepare the successful response data for Qualtrics frontend
                         response_data = {
                             'generated_text': generated_text,
-                            'used_temperature': used_temperature # Echo back parameters used
+                            'used_temperature': used_temperature
                         }
                         if used_seed is not None:
-                            response_data['used_seed'] = used_seed # Echo back seed if used
-
-                        status_code = 200 # OK
+                            response_data['used_seed'] = used_seed
+                        
+                        status_code = 200  # OK
                     except (KeyError, IndexError, TypeError, json.JSONDecodeError) as e:
                         # Handle cases where OpenAI gives 200 but response format is unexpected
                         print(f"[ERROR /lucid] OpenAI response format unexpected (Status 200): {openai_response_text} - Error: {e}") # Vercel Log
